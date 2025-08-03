@@ -58,6 +58,8 @@ docker pull ghcr.io/emanuelef/historical-wind-direction/wind-direction-app:main
 
 # Run the container
 docker run -p 8501:8501 ghcr.io/emanuelef/historical-wind-direction/wind-direction-app:main
+
+# The image supports both amd64 and arm64 architectures (including Apple Silicon M1/M2/M3)
 ```
 
 Access the application at http://localhost:8501

@@ -1,6 +1,25 @@
 # Historical Wind Direction Analysis
 
-This project analyzes and compares wind direction data from two sources:
+This project analyzes and compares wind direction dat# Pull the latest image
+docker pull ghcr.io/emanuelef/historical-wind-direction/wind-direction-app:main
+
+# Run the container
+docker run -p 8501:8501 ghcr.io/emanuelef/historical-wind-direction/wind-direction-app:main
+
+# The image supports both amd64 and arm64 architectures (including Apple Silicon M1/M2/M3)
+```
+
+Or build and run locally:
+
+```bash
+# Build the Docker image
+docker build -t wind-direction-app .
+
+# Run the container
+docker run -p 8501:8501 wind-direction-app
+```
+
+Once running, access the application at http://localhost:8501:
 1. Heathrow Airport's official operational dataset
 2. Open-Meteo API historical weather data
 
