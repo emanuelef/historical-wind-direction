@@ -14,6 +14,7 @@ The goal of this analysis is to validate the reliability of using Open-Meteo API
 - **Data Processing**: Tools for standardizing and aligning time series data from different sources
 - **Statistical Analysis**: Comprehensive statistical evaluation of the agreement between data sources
 - **Visualization**: Various plots and charts to illustrate the relationships and differences
+- **Interactive Application**: Streamlit app for exploring wind direction patterns at any location worldwide
 
 ## Key Findings
 
@@ -36,7 +37,7 @@ The repository includes:
 
 - **Python Scripts**:
   - `heathrow_wind_scraper.py`: Extracts and processes Heathrow wind data
-  - `wind_direction_app.py`: Fetches and processes data from the Open-Meteo API
+  - `app/wind_direction_app.py`: Interactive Streamlit application for exploring wind patterns
   - `compare_wind_sources.py`: Aligns and compares data from both sources
 
 - **Jupyter Notebook**:
@@ -62,9 +63,47 @@ The Open-Meteo API provides wind direction data that strongly agrees with offici
 
 ## Usage
 
+### Running the Analysis Scripts
+
 To run the analysis:
 
 1. Ensure you have Python 3.x installed with required packages (pandas, numpy, matplotlib, seaborn, scipy)
 2. Run the data extraction scripts to gather data from both sources
 3. Execute the comparison script to generate statistical metrics
 4. Open the Jupyter notebook for detailed analysis and visualizations
+
+### Running the Interactive App
+
+#### Local Installation
+
+```bash
+# Install required packages
+pip install -r requirements.txt
+
+# Run the Streamlit app
+streamlit run app/wind_direction_app.py
+```
+
+#### Using Docker
+
+You can run the application using Docker:
+
+```bash
+# Pull the image from GitHub Container Registry
+docker pull ghcr.io/emanuelef/historical-wind-direction/wind-direction-app:main
+
+# Run the container
+docker run -p 8501:8501 ghcr.io/emanuelef/historical-wind-direction/wind-direction-app:main
+```
+
+Or build and run locally:
+
+```bash
+# Build the Docker image
+docker build -t wind-direction-app .
+
+# Run the container
+docker run -p 8501:8501 wind-direction-app
+```
+
+Once running, access the application at http://localhost:8501
