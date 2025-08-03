@@ -1,0 +1,37 @@
+version: 2
+updates:
+  # Check for updates to GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "ci"
+      - "dependencies"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+  
+  # Check for updates to Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "python"
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    
+  # Check for updates to Docker base image
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "docker"
+      - "dependencies"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
