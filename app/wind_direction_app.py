@@ -13,6 +13,12 @@ import folium
 
 st.set_page_config(page_title="Historical Wind Direction Explorer", layout="wide")
 
+# Apply custom CSS immediately to fix map-to-controls gap
+st.markdown(
+    "<style>div[data-testid='stVerticalBlock']:has(div.folium-map) + div[data-testid='stVerticalBlock'] { margin-top: -32px !important; } </style>",
+    unsafe_allow_html=True,
+)
+
 # Default location: Heathrow Airport, UK
 latitude = 51.4700
 longitude = -0.4543
@@ -77,12 +83,6 @@ if map_output and map_output.get("last_clicked"):
             # Enable analysis for the new location
             st.session_state.analyze_mode = True
             st.rerun()
-
-# Remove vertical gap between map and controls
-st.markdown(
-    "<style>div[data-testid='stVerticalBlock']:has(div.folium-map) + div[data-testid='stVerticalBlock'] { margin-top: -32px !important; } </style>",
-    unsafe_allow_html=True,
-)
 
 # Coordinates and buttons in a single row below the map
 coord_col, btn_col1, btn_col2 = st.columns([2, 1, 2])
