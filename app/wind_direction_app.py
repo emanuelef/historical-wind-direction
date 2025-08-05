@@ -11,11 +11,40 @@ import numpy as np
 from streamlit_folium import st_folium
 import folium
 
+# Configure page before anything else
 st.set_page_config(page_title="Historical Wind Direction Explorer", layout="wide")
 
-# Apply custom CSS immediately to fix map-to-controls gap
+# SIMPLIFIED CSS APPROACH - focus on specific elements only
 st.markdown(
-    "<style>div[data-testid='stVerticalBlock']:has(div.folium-map) + div[data-testid='stVerticalBlock'] { margin-top: -32px !important; } </style>",
+    """
+    <style>
+    /* Set default padding for all elements */
+    .stApp {
+        --default-gap: 0.5rem;
+    }
+    
+    /* Target the specific elements that cause the gap */
+    .stApp > section > div > div:nth-of-type(1) > div:nth-of-type(1) > div,
+    .element-container {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+    
+    /* Fix map container padding */
+    .element-container:has(iframe) {
+        padding-bottom: 0 !important;
+        margin-bottom: -1.5rem !important;
+    }
+    
+    /* Make buttons more compact */
+    .stButton > button {
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.2rem !important;
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
@@ -23,6 +52,7 @@ st.markdown(
 latitude = 51.4700
 longitude = -0.4543
 
+# Title
 st.markdown("### Select a location to analyze wind direction patterns")
 
 # --- State Initialization ---
@@ -54,8 +84,8 @@ if st.session_state.location:
 
 m.add_child(folium.LatLngPopup())
 
-# Render map and get output
-map_output = st_folium(m, width="100%", height=500, key="map")
+# Render map with reduced height to minimize gap
+map_output = st_folium(m, width="100%", height=460, key="map")
 
 # Check if map has TRULY changed in a meaningful way (new clicks, not just zoom/pan)
 if map_output and map_output.get("last_clicked"):
@@ -84,9 +114,14 @@ if map_output and map_output.get("last_clicked"):
             st.session_state.analyze_mode = True
             st.rerun()
 
-# Coordinates and buttons in a single row below the map
-coord_col, btn_col1, btn_col2 = st.columns([2, 1, 2])
-with coord_col:
+# Simple control section with reduced spacing
+# Add a small negative margin to pull controls closer to map
+st.markdown('<div style="margin-top:-2rem;"></div>', unsafe_allow_html=True)
+
+# Simple columns layout using native Streamlit
+col1, col2, col3 = st.columns([2, 1, 1])
+
+with col1:
     # Show selected location
     if st.session_state.location:
         lat, lon = st.session_state.location
@@ -94,17 +129,20 @@ with coord_col:
     else:
         st.markdown("**No location selected**")
         
-with btn_col1:
-    if st.button("Reset to Heathrow"):
-        # Reset to Heathrow default
+with col2:
+    # Use a small button with native Streamlit
+    if st.button("Reset to Heathrow", key="reset_btn", use_container_width=True):
         st.session_state.location = (latitude, longitude)
         st.session_state.analyze_mode = True
         st.rerun()
         
-with btn_col2:
+with col3:
+    # Use a small button with native Streamlit
     if st.button(
-        "Analyze Wind Direction",
+        "Analyze Wind Direction", 
+        key="analyze_btn",
         disabled=st.session_state.location is None,
+        use_container_width=True
     ):
         st.session_state.analyze_mode = True
         st.rerun()
