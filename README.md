@@ -1,6 +1,30 @@
-# Historical Wind Direction Analysis
+# Historical Climate Data Explorer
 
-This project analyzes and compares wind direction dat# Pull the latest image
+This project provides interactive tools to analyze historical climate data, including:
+
+1. **Wind Direction Analysis**: Study the patterns of easterly vs westerly winds over time
+2. **Temperature Comparison**: Compare apparent temperature between two locations
+
+The application is built with Streamlit and uses Open-Meteo's historical weather data API.
+
+## Features
+
+### Wind Direction Analysis
+- Analyze wind patterns for any global location
+- View percentage of easterly vs westerly winds by month and year
+- Identify the longest consecutive periods of consistent wind direction
+- Visualize annual trends in wind direction
+
+### Temperature Comparison
+- Compare apparent temperatures between two locations
+- View monthly maximum apparent temperatures across years
+- See temperature differences between locations with heat maps
+
+## Running the App
+
+### Using Docker (Recommended)
+
+# Pull the latest image
 docker pull ghcr.io/emanuelef/historical-wind-direction/wind-direction-app:main
 
 # Run the container

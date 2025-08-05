@@ -18,5 +18,5 @@ EXPOSE 8501
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Command to run the application
-CMD ["streamlit", "run", "app/wind_direction_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Command to run the unified app (replacing the previous command)
+CMD ["streamlit", "run", "app/unified_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
