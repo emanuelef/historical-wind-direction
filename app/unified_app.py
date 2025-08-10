@@ -447,9 +447,9 @@ with tab1:
                 plt.tight_layout()
                 st.pyplot(plt)
                 
-                # Create yearly heatmap for easterly wind preference
-                st.markdown("### Easterly Wind Percentage by Day and Month")
-                st.markdown("This heatmap shows the average percentage of easterly winds (vs westerly) for each day of each month across all years in the dataset.")
+                # Create yearly heatmap for westerly wind preference
+                st.markdown("### Westerly Wind Percentage by Day and Month")
+                st.markdown("This heatmap shows the average percentage of westerly winds (vs easterly) for each day of each month across all years in the dataset.")
                 
                 # We need to make a new call to fetch data for this analysis
                 end_date = datetime.today()
@@ -490,8 +490,8 @@ with tab1:
                         daily_percent = daily_ew.div(daily_total, axis=0) * 100
                         daily_percent = daily_percent.reset_index()
                         
-                        # Create the pivot table for the heatmap (E percentage)
-                        yearly_heatmap = daily_percent.pivot(index='month_num', columns='day', values='E')
+                        # Create the pivot table for the heatmap (W percentage)
+                        yearly_heatmap = daily_percent.pivot(index='month_num', columns='day', values='W')
                         
                         # Create the heatmap
                         plt.figure(figsize=(14, 8))
@@ -499,8 +499,8 @@ with tab1:
                             yearly_heatmap,
                             annot=True,
                             fmt=".1f",
-                            cmap="RdYlGn_r",  # Reversed to show red for higher easterly %
-                            cbar_kws={"label": "% Easterly Winds"},
+                            cmap="RdYlGn",  # Green for higher westerly %
+                            cbar_kws={"label": "% Westerly Winds"},
                             linewidths=0.5,
                             linecolor="gray",
                             vmin=0,
@@ -508,7 +508,7 @@ with tab1:
                             annot_kws={"size": 8},
                             mask=yearly_heatmap.isna()  # Explicitly mask NA values
                         )
-                        plt.title("Easterly Wind Percentage by Day and Month (All Years)")
+                        plt.title("Westerly Wind Percentage by Day and Month (All Years)")
                         plt.xlabel("Day")
                         plt.ylabel("Month")
                         
@@ -520,8 +520,8 @@ with tab1:
                         st.pyplot(plt)
                         
                         # Current year heatmap
-                        st.markdown("### Easterly Wind Percentage by Day and Month (Current Year Only)")
-                        st.markdown("This heatmap shows the percentage of easterly winds for each day of each month for the current year only.")
+                        st.markdown("### Westerly Wind Percentage by Day and Month (Current Year Only)")
+                        st.markdown("This heatmap shows the percentage of westerly winds for each day of each month for the current year only.")
                         
                         # Filter for current year data
                         current_year = datetime.now().year
@@ -539,8 +539,8 @@ with tab1:
                             current_daily_percent = current_daily_ew.div(current_daily_total, axis=0) * 100
                             current_daily_percent = current_daily_percent.reset_index()
                             
-                            # Create the pivot table for the current year heatmap (E percentage)
-                            current_yearly_heatmap = current_daily_percent.pivot(index='month_num', columns='day', values='E')
+                            # Create the pivot table for the current year heatmap (W percentage)
+                            current_yearly_heatmap = current_daily_percent.pivot(index='month_num', columns='day', values='W')
                             
                             # Create a summary of data availability
                             st.markdown("### Data Availability for Current Year")
@@ -565,6 +565,7 @@ with tab1:
                             st.markdown("- Missing data in the weather archive")
                             st.markdown("- Days with only N/S winds (no E/W component)")
                             st.markdown("- Days with incomplete observations")
+                            st.markdown("> Higher values (green) indicate more westerly winds, while lower values (red) indicate more easterly winds.")
                             
                             # Create the heatmap
                             plt.figure(figsize=(14, 8))
@@ -572,8 +573,8 @@ with tab1:
                                 current_yearly_heatmap,
                                 annot=True,
                                 fmt=".1f",
-                                cmap="RdYlGn_r",  # Reversed to show red for higher easterly %
-                                cbar_kws={"label": "% Easterly Winds"},
+                                cmap="RdYlGn",  # Green for higher westerly %
+                                cbar_kws={"label": "% Westerly Winds"},
                                 linewidths=0.5,
                                 linecolor="gray",
                                 vmin=0,
@@ -581,7 +582,7 @@ with tab1:
                                 annot_kws={"size": 8},
                                 mask=current_yearly_heatmap.isna()  # Explicitly mask NA values
                             )
-                            plt.title(f"Easterly Wind Percentage by Day and Month ({current_year})")
+                            plt.title(f"Westerly Wind Percentage by Day and Month ({current_year})")
                             plt.xlabel("Day")
                             plt.ylabel("Month")
                             
