@@ -447,6 +447,155 @@ with tab1:
                 plt.tight_layout()
                 st.pyplot(plt)
                 
+                # Create yearly heatmap for easterly wind preference
+                st.markdown("### Easterly Wind Percentage by Day and Month")
+                st.markdown("This heatmap shows the average percentage of easterly winds (vs westerly) for each day of each month across all years in the dataset.")
+                
+                # We need to make a new call to fetch data for this analysis
+                end_date = datetime.today()
+                start_year = end_date.year - 10  # Get 10 years of data
+                start_date = datetime(start_year, 1, 1)
+                
+                # Fetch the data directly
+                with st.spinner("Generating day-month heatmaps..."):
+                    url = "https://archive-api.open-meteo.com/v1/archive"
+                    params = {
+                        "latitude": lat,
+                        "longitude": lon,
+                        "start_date": start_date.strftime("%Y-%m-%d"),
+                        "end_date": end_date.strftime("%Y-%m-%d"),
+                        "hourly": "wind_speed_10m,wind_direction_10m",
+                        "timezone": "auto",
+                    }
+                    response = requests.get(url, params=params)
+                    
+                    if response.status_code == 200 and "hourly" in response.json():
+                        data = response.json()["hourly"]
+                        
+                        # Process the data
+                        df_winds = pd.DataFrame(data)
+                        df_winds["time"] = pd.to_datetime(df_winds["time"])
+                        df_winds["wind_direction_compass"] = df_winds["wind_direction_10m"].apply(deg_to_compass)
+                        df_winds["year"] = df_winds["time"].dt.year
+                        df_winds["month_num"] = df_winds["time"].dt.month
+                        df_winds["day"] = df_winds["time"].dt.day
+                        
+                        # Filter for E/W winds only
+                        df_winds = df_winds[df_winds["wind_direction_compass"].isin(["E", "W"])]
+                        
+                        # Calculate daily percentages for all years combined
+                        daily_ew = df_winds.groupby(['month_num', 'day', 'wind_direction_compass']).size().unstack(fill_value=0)
+                        daily_ew = daily_ew.reindex(columns=['E', 'W'], fill_value=0)
+                        daily_total = daily_ew.sum(axis=1)
+                        daily_percent = daily_ew.div(daily_total, axis=0) * 100
+                        daily_percent = daily_percent.reset_index()
+                        
+                        # Create the pivot table for the heatmap (E percentage)
+                        yearly_heatmap = daily_percent.pivot(index='month_num', columns='day', values='E')
+                        
+                        # Create the heatmap
+                        plt.figure(figsize=(14, 8))
+                        ax = sns.heatmap(
+                            yearly_heatmap,
+                            annot=True,
+                            fmt=".1f",
+                            cmap="RdYlGn_r",  # Reversed to show red for higher easterly %
+                            cbar_kws={"label": "% Easterly Winds"},
+                            linewidths=0.5,
+                            linecolor="gray",
+                            vmin=0,
+                            vmax=100,
+                            annot_kws={"size": 8},
+                            mask=yearly_heatmap.isna()  # Explicitly mask NA values
+                        )
+                        plt.title("Easterly Wind Percentage by Day and Month (All Years)")
+                        plt.xlabel("Day")
+                        plt.ylabel("Month")
+                        
+                        # Set y-tick labels as month names
+                        month_names = [calendar.month_abbr[m] for m in yearly_heatmap.index]
+                        ax.set_yticklabels(month_names, rotation=0)
+                        
+                        plt.tight_layout()
+                        st.pyplot(plt)
+                        
+                        # Current year heatmap
+                        st.markdown("### Easterly Wind Percentage by Day and Month (Current Year Only)")
+                        st.markdown("This heatmap shows the percentage of easterly winds for each day of each month for the current year only.")
+                        
+                        # Filter for current year data
+                        current_year = datetime.now().year
+                        df_current_year = df_winds[df_winds['year'] == current_year].copy()
+                        
+                        if not df_current_year.empty:
+                            # Calculate daily percentages for current year
+                            current_daily_ew = df_current_year.groupby(['month_num', 'day', 'wind_direction_compass']).size().unstack(fill_value=0)
+                            current_daily_ew = current_daily_ew.reindex(columns=['E', 'W'], fill_value=0)
+                            current_daily_total = current_daily_ew.sum(axis=1)
+                            
+                            # Add a column to track if there were any wind observations at all
+                            current_daily_has_winds = current_daily_total > 0
+                            
+                            current_daily_percent = current_daily_ew.div(current_daily_total, axis=0) * 100
+                            current_daily_percent = current_daily_percent.reset_index()
+                            
+                            # Create the pivot table for the current year heatmap (E percentage)
+                            current_yearly_heatmap = current_daily_percent.pivot(index='month_num', columns='day', values='E')
+                            
+                            # Create a summary of data availability
+                            st.markdown("### Data Availability for Current Year")
+                            # Count available vs missing days per month
+                            total_days = df_current_year['day'].nunique()
+                            missing_days = 365 - total_days  # Approximate for simplicity
+                            st.write(f"Total days with wind direction data: **{total_days}** (Missing: ~{missing_days} days)")
+                            
+                            # Create a dataframe of month-by-month data coverage
+                            days_by_month = df_current_year.groupby('month_num')['day'].nunique()
+                            days_in_month = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31}  # Simplified
+                            coverage = pd.DataFrame({
+                                'Month': [calendar.month_name[m] for m in days_by_month.index],
+                                'Days with Data': days_by_month.values,
+                                'Total Days': [days_in_month.get(m, 30) for m in days_by_month.index],
+                            })
+                            coverage['Coverage %'] = (coverage['Days with Data'] / coverage['Total Days'] * 100).round(1)
+                            st.write(coverage)
+                            
+                            # Explanation for missing values
+                            st.markdown("**Note:** White cells in the heatmap represent days with no E/W wind data available. This could be due to:")
+                            st.markdown("- Missing data in the weather archive")
+                            st.markdown("- Days with only N/S winds (no E/W component)")
+                            st.markdown("- Days with incomplete observations")
+                            
+                            # Create the heatmap
+                            plt.figure(figsize=(14, 8))
+                            ax = sns.heatmap(
+                                current_yearly_heatmap,
+                                annot=True,
+                                fmt=".1f",
+                                cmap="RdYlGn_r",  # Reversed to show red for higher easterly %
+                                cbar_kws={"label": "% Easterly Winds"},
+                                linewidths=0.5,
+                                linecolor="gray",
+                                vmin=0,
+                                vmax=100,
+                                annot_kws={"size": 8},
+                                mask=current_yearly_heatmap.isna()  # Explicitly mask NA values
+                            )
+                            plt.title(f"Easterly Wind Percentage by Day and Month ({current_year})")
+                            plt.xlabel("Day")
+                            plt.ylabel("Month")
+                            
+                            # Set y-tick labels as month names
+                            month_names = [calendar.month_abbr[m] for m in current_yearly_heatmap.index]
+                            ax.set_yticklabels(month_names, rotation=0)
+                            
+                            plt.tight_layout()
+                            st.pyplot(plt)
+                        else:
+                            st.info(f"No data available for the current year ({current_year}).")
+                    else:
+                        st.error("Failed to fetch data for heatmap visualization.")
+                
                 # Show raw data
                 st.markdown("#### Raw Monthly Data")
                 display_data = ew_percent.copy()
