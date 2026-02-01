@@ -290,18 +290,34 @@ function renderWindResults(data: WindData) {
   ];
 
   // Replace 0 values with null (no data) so they appear blank
-  const windValues = data.heatmap.values.map(row =>
+  const windValuesBase = data.heatmap.values.map(row =>
     row.map(v => v === 0 ? null : v)
   );
-  const windText = data.heatmap.values.map(row =>
+
+  // Calculate yearly averages (average of each column)
+  const yearlyAvg = data.heatmap.years.map((_, yearIdx) => {
+    const colValues = data.heatmap.values
+      .map(row => row[yearIdx])
+      .filter(v => v !== 0 && v !== null && v !== undefined);
+    if (colValues.length === 0) return null;
+    return colValues.reduce((a, b) => a + b, 0) / colValues.length;
+  });
+
+  // Add average row at the bottom
+  const windValues = [...windValuesBase, yearlyAvg];
+  const windYLabels = [...data.heatmap.months.map(m => MONTHS[m - 1]), 'Average'];
+
+  const windTextBase = data.heatmap.values.map(row =>
     row.map(v => v === 0 ? '' : v.toFixed(1))
   );
+  const avgText = yearlyAvg.map(v => v === null ? '' : v.toFixed(1));
+  const windText = [...windTextBase, avgText];
 
   // Heatmap
   Plotly.newPlot('wind-heatmap-chart', [{
     z: windValues,
     x: data.heatmap.years,
-    y: data.heatmap.months.map(m => MONTHS[m - 1]),
+    y: windYLabels,
     type: 'heatmap',
     colorscale: windColorscale,
     zmin: 0,
@@ -315,9 +331,9 @@ function renderWindResults(data: WindData) {
     colorbar: { title: '% Westerly Winds', len: 0.9 }
   }], {
     title: 'Westerly Wind Percentage per Month per Year',
-    height: 650,
+    height: 700,
     width: 1000,
-    margin: { t: 50, l: 60, r: 120, b: 50 },
+    margin: { t: 50, l: 70, r: 120, b: 50 },
     yaxis: { autorange: 'reversed' }
   }, { responsive: true });
 
@@ -389,18 +405,34 @@ function renderRainResults(data: RainData) {
   setupSubTabs('rain-sub-tabs');
 
   // Replace 0 values with null (no data) so they appear blank
-  const rainValues = data.heatmap.values.map(row =>
+  const rainValuesBase = data.heatmap.values.map(row =>
     row.map(v => v === 0 ? null : v)
   );
-  const rainText = data.heatmap.values.map(row =>
+
+  // Calculate yearly averages (average of each column)
+  const rainYearlyAvg = data.heatmap.years.map((_, yearIdx) => {
+    const colValues = data.heatmap.values
+      .map(row => row[yearIdx])
+      .filter(v => v !== 0 && v !== null && v !== undefined);
+    if (colValues.length === 0) return null;
+    return colValues.reduce((a, b) => a + b, 0) / colValues.length;
+  });
+
+  // Add average row at the bottom
+  const rainValues = [...rainValuesBase, rainYearlyAvg];
+  const rainYLabels = [...data.heatmap.months.map(m => MONTHS[m - 1]), 'Average'];
+
+  const rainTextBase = data.heatmap.values.map(row =>
     row.map(v => v === 0 ? '' : v.toFixed(0))
   );
+  const rainAvgText = rainYearlyAvg.map(v => v === null ? '' : v.toFixed(0));
+  const rainText = [...rainTextBase, rainAvgText];
 
   // Heatmap
   Plotly.newPlot('rain-heatmap-chart', [{
     z: rainValues,
     x: data.heatmap.years,
-    y: data.heatmap.months.map(m => MONTHS[m - 1]),
+    y: rainYLabels,
     type: 'heatmap',
     colorscale: 'Blues',
     reversescale: true,
@@ -507,24 +539,51 @@ function renderTempResults(data1: TempData, data2: TempData) {
   ];
 
   // Replace 0 values with null (no data) so they appear blank
-  const temp1Values = data1.heatmap.values.map(row =>
+  const temp1ValuesBase = data1.heatmap.values.map(row =>
     row.map(v => v === 0 ? null : v)
   );
-  const temp1Text = data1.heatmap.values.map(row =>
-    row.map(v => v === 0 ? '' : v.toFixed(1))
-  );
-  const temp2Values = data2.heatmap.values.map(row =>
+  const temp2ValuesBase = data2.heatmap.values.map(row =>
     row.map(v => v === 0 ? null : v)
   );
-  const temp2Text = data2.heatmap.values.map(row =>
+
+  // Calculate yearly averages for both locations
+  const temp1YearlyAvg = data1.heatmap.years.map((_, yearIdx) => {
+    const colValues = data1.heatmap.values
+      .map(row => row[yearIdx])
+      .filter(v => v !== 0 && v !== null && v !== undefined);
+    if (colValues.length === 0) return null;
+    return colValues.reduce((a, b) => a + b, 0) / colValues.length;
+  });
+  const temp2YearlyAvg = data2.heatmap.years.map((_, yearIdx) => {
+    const colValues = data2.heatmap.values
+      .map(row => row[yearIdx])
+      .filter(v => v !== 0 && v !== null && v !== undefined);
+    if (colValues.length === 0) return null;
+    return colValues.reduce((a, b) => a + b, 0) / colValues.length;
+  });
+
+  // Add average row at the bottom
+  const temp1Values = [...temp1ValuesBase, temp1YearlyAvg];
+  const temp2Values = [...temp2ValuesBase, temp2YearlyAvg];
+  const tempYLabels = [...data1.heatmap.months.map(m => MONTHS[m - 1]), 'Average'];
+
+  const temp1TextBase = data1.heatmap.values.map(row =>
     row.map(v => v === 0 ? '' : v.toFixed(1))
   );
+  const temp1AvgText = temp1YearlyAvg.map(v => v === null ? '' : v.toFixed(1));
+  const temp1Text = [...temp1TextBase, temp1AvgText];
+
+  const temp2TextBase = data2.heatmap.values.map(row =>
+    row.map(v => v === 0 ? '' : v.toFixed(1))
+  );
+  const temp2AvgText = temp2YearlyAvg.map(v => v === null ? '' : v.toFixed(1));
+  const temp2Text = [...temp2TextBase, temp2AvgText];
 
   // Heatmap 1
   Plotly.newPlot('temp-chart1', [{
     z: temp1Values,
     x: data1.heatmap.years,
-    y: data1.heatmap.months.map(m => MONTHS[m - 1]),
+    y: tempYLabels,
     type: 'heatmap',
     colorscale: tempColorscale,
     zmin: 0,
@@ -542,7 +601,7 @@ function renderTempResults(data1: TempData, data2: TempData) {
   Plotly.newPlot('temp-chart2', [{
     z: temp2Values,
     x: data2.heatmap.years,
-    y: data2.heatmap.months.map(m => MONTHS[m - 1]),
+    y: tempYLabels,
     type: 'heatmap',
     colorscale: tempColorscale,
     zmin: 0,
@@ -557,21 +616,32 @@ function renderTempResults(data1: TempData, data2: TempData) {
   }], { height: 550, margin: { t: 20, l: 60, r: 100 }, yaxis: { autorange: 'reversed' } }, { responsive: true });
 
   // Diff heatmap - handle null values
-  const diffValues = data2.heatmap.values.map((row, i) =>
+  const diffValuesBase = data2.heatmap.values.map((row, i) =>
     row.map((val, j) => {
       const v1 = data1.heatmap.values[i]?.[j] || 0;
       if (val === 0 || v1 === 0) return null;
       return val - v1;
     })
   );
-  const diffText = diffValues.map(row =>
+  // Calculate average diff for each year
+  const diffYearlyAvg = data2.heatmap.years.map((_, yearIdx) => {
+    const t1Avg = temp1YearlyAvg[yearIdx];
+    const t2Avg = temp2YearlyAvg[yearIdx];
+    if (t1Avg === null || t2Avg === null) return null;
+    return t2Avg - t1Avg;
+  });
+  const diffValues = [...diffValuesBase, diffYearlyAvg];
+
+  const diffTextBase = diffValuesBase.map(row =>
     row.map(v => v === null ? '' : v.toFixed(1))
   );
+  const diffAvgText = diffYearlyAvg.map(v => v === null ? '' : v.toFixed(1));
+  const diffText = [...diffTextBase, diffAvgText];
 
   Plotly.newPlot('temp-diff-chart', [{
     z: diffValues,
     x: data2.heatmap.years,
-    y: data2.heatmap.months.map(m => MONTHS[m - 1]),
+    y: tempYLabels,
     type: 'heatmap',
     colorscale: 'RdBu',
     zmid: 0,
