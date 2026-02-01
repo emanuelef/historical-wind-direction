@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Climate Data Explorer</title>
+
+  <!-- Plotly.js for charts -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+  <!-- Leaflet for maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Climate Data Explorer</h1>
+      <p class="subtitle">Powered by Open-Meteo API</p>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Main Tabs -->
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="wind" role="tab" aria-selected="true">Wind Direction</button>
+      <button class="tab-btn" data-tab="rain" role="tab" aria-selected="false">Rainfall</button>
+      <button class="tab-btn" data-tab="temp" role="tab" aria-selected="false">Temperature</button>
+    </div>
+
+    <!-- Wind Tab -->
+    <div id="wind-tab" class="tab-content active">
+      <div class="card">
+        <h3>Select a location to analyze wind direction patterns</h3>
+        <div id="wind-map" class="map-container"></div>
+        <div class="controls">
+          <span class="coords" id="wind-coords">51.4700, -0.4543 (Heathrow)</span>
+          <div class="btn-group">
+            <button class="btn btn-secondary" id="wind-reset">Reset</button>
+            <button class="btn btn-primary" id="wind-analyze">Analyze</button>
+          </div>
+        </div>
+      </div>
+      <div id="wind-loading" class="loading hidden"><div class="spinner"></div>Loading...</div>
+      <div id="wind-results" class="hidden"></div>
+    </div>
+
+    <!-- Rain Tab -->
+    <div id="rain-tab" class="tab-content hidden">
+      <div class="card">
+        <h3>Select a location to analyze rainfall patterns</h3>
+        <div id="rain-map" class="map-container"></div>
+        <div class="controls">
+          <span class="coords" id="rain-coords">51.4700, -0.4543 (Heathrow)</span>
+          <div class="btn-group">
+            <button class="btn btn-secondary" id="rain-reset">Reset</button>
+            <button class="btn btn-primary" id="rain-analyze">Analyze</button>
+          </div>
+        </div>
+      </div>
+      <div id="rain-loading" class="loading hidden"><div class="spinner"></div>Loading...</div>
+      <div id="rain-results" class="hidden"></div>
+    </div>
+
+    <!-- Temperature Tab -->
+    <div id="temp-tab" class="tab-content hidden">
+      <div class="card">
+        <h3>Compare temperature between two locations</h3>
+        <p class="hint">Click on the map to select locations (max 2)</p>
+        <div id="temp-map" class="map-container"></div>
+        <div class="controls">
+          <div id="temp-locations" class="location-tags"></div>
+          <div class="btn-group">
+            <button class="btn btn-secondary" id="temp-clear">Clear</button>
+            <button class="btn btn-primary" id="temp-compare" disabled>Compare</button>
+          </div>
+        </div>
+      </div>
+      <div id="temp-loading" class="loading hidden"><div class="spinner"></div>Loading...</div>
+      <div id="temp-results" class="hidden"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

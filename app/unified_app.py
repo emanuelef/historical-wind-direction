@@ -15,7 +15,7 @@ import folium
 # Configure page before anything else
 st.set_page_config(page_title="Historical Climate Data Explorer", layout="wide")
 
-# SIMPLIFIED CSS APPROACH - focus on specific elements only
+# Enhanced CSS for better UI/UX
 st.markdown(
     """
     <style>
@@ -23,7 +23,7 @@ st.markdown(
     .stApp {
         --default-gap: 0.5rem;
     }
-    
+
     /* Target the specific elements that cause the gap */
     .stApp > section > div > div:nth-of-type(1) > div:nth-of-type(1) > div,
     .element-container {
@@ -32,37 +32,92 @@ st.markdown(
         margin-top: 0 !important;
         margin-bottom: 0 !important;
     }
-    
+
     /* Fix map container padding */
     .element-container:has(iframe) {
         padding-bottom: 0 !important;
         margin-bottom: -1.5rem !important;
     }
-    
-    /* Make buttons more compact */
+
+    /* Make buttons more compact and styled */
     .stButton > button {
-        padding-top: 0.2rem !important;
-        padding-bottom: 0.2rem !important;
+        padding-top: 0.4rem !important;
+        padding-bottom: 0.4rem !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
     }
-    
-    /* Add styling for the tabs */
+
+    .stButton > button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    }
+
+    /* Main app tabs styling */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 24px;
+        gap: 8px;
+        background-color: transparent;
     }
-    
+
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
+        height: 45px;
         white-space: pre-wrap;
-        background-color: #f0f2f6;
-        border-radius: 4px 4px 0px 0px;
-        gap: 1px;
-        padding-top: 10px;
-        padding-bottom: 10px;
+        background-color: rgba(240, 242, 246, 0.8);
+        border-radius: 8px 8px 0px 0px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.2s ease;
     }
-    
+
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: rgba(230, 240, 253, 0.9);
+    }
+
     .stTabs [aria-selected="true"] {
         background-color: #e6f0fd !important;
-        border-bottom: 2px solid #4285F4;
+        border-bottom: 3px solid #4285F4 !important;
+    }
+
+    /* Metric cards styling */
+    [data-testid="stMetric"] {
+        background-color: rgba(240, 242, 246, 0.5);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #4285F4;
+    }
+
+    [data-testid="stMetric"] label {
+        font-size: 0.9rem !important;
+        color: #555 !important;
+    }
+
+    [data-testid="stMetric"] [data-testid="stMetricValue"] {
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* Divider styling */
+    hr {
+        margin: 1rem 0 !important;
+        border-color: rgba(0,0,0,0.1) !important;
+    }
+
+    /* Sub-tabs (inner tabs) styling */
+    .stTabs .stTabs [data-baseweb="tab"] {
+        height: 40px;
+        padding: 8px 16px;
+        font-size: 0.9rem;
+    }
+
+    /* Dataframe styling */
+    .stDataFrame {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    /* Info/success/error boxes */
+    .stAlert {
+        border-radius: 8px !important;
     }
     </style>
     """,
@@ -285,11 +340,11 @@ def fetch_and_process_rain(lat, lon):
     if response.status_code == 200 and "hourly" in response.json():
         data = response.json()["hourly"]
         if not data or not data.get("time") or len(data["time"]) == 0:
-            return None, None, "No data available for this location and time range."
+            return None, None, None, "No data available for this location and time range."
 
         df = pd.DataFrame(data)
         if df.empty:
-            return None, None, "No data returned for this location."
+            return None, None, None, "No data returned for this location."
 
         # Process the data
         df["time"] = pd.to_datetime(df["time"])
@@ -303,6 +358,7 @@ def fetch_and_process_rain(lat, lon):
 
         # Daily totals
         daily_rain = df.groupby(["date", "year", "month_num", "day"])["precipitation"].sum().reset_index()
+        daily_rain = daily_rain.sort_values("date").reset_index(drop=True)
 
         # Monthly totals by year
         monthly_rain = daily_rain.groupby(["month_num", "year"])["precipitation"].sum().reset_index()
@@ -311,9 +367,69 @@ def fetch_and_process_rain(lat, lon):
         heatmap_data = monthly_rain.pivot(index="month_num", columns="year", values="precipitation")
         heatmap_data = heatmap_data.sort_index()
 
-        return heatmap_data, daily_rain, None
+        # Calculate summary statistics
+        daily_rain["is_rainy"] = daily_rain["precipitation"] > 0.1  # Consider >0.1mm as rainy
+
+        # Find longest dry and wet streaks
+        def find_streaks(is_condition):
+            streaks = []
+            current_start = None
+            current_len = 0
+            dates = daily_rain["date"].tolist()
+            conditions = is_condition.tolist()
+
+            for i, (date, cond) in enumerate(zip(dates, conditions)):
+                if cond:
+                    if current_start is None:
+                        current_start = date
+                        current_len = 1
+                    else:
+                        current_len += 1
+                else:
+                    if current_start is not None and current_len > 1:
+                        streaks.append((current_start, dates[i-1], current_len))
+                    current_start = None
+                    current_len = 0
+            # Handle last streak
+            if current_start is not None and current_len > 1:
+                streaks.append((current_start, dates[-1], current_len))
+
+            streaks = sorted(streaks, key=lambda x: -x[2])[:5]
+            return streaks
+
+        dry_streaks = find_streaks(~daily_rain["is_rainy"])
+        wet_streaks = find_streaks(daily_rain["is_rainy"])
+
+        # Create streaks dataframe
+        streak_data = pd.DataFrame(
+            [("Dry", start, end, length) for start, end, length in dry_streaks]
+            + [("Wet", start, end, length) for start, end, length in wet_streaks],
+            columns=["type", "start_date", "end_date", "days"],
+        )
+
+        # Calculate summary stats
+        total_rainfall = daily_rain["precipitation"].sum()
+        avg_yearly = total_rainfall / len(daily_rain["year"].unique())
+        rainy_days = daily_rain["is_rainy"].sum()
+        total_days = len(daily_rain)
+        rainy_pct = (rainy_days / total_days) * 100 if total_days > 0 else 0
+        max_daily = daily_rain["precipitation"].max()
+        max_daily_date = daily_rain.loc[daily_rain["precipitation"].idxmax(), "date"]
+
+        summary_stats = {
+            "total_rainfall": total_rainfall,
+            "avg_yearly": avg_yearly,
+            "rainy_days": rainy_days,
+            "total_days": total_days,
+            "rainy_pct": rainy_pct,
+            "max_daily": max_daily,
+            "max_daily_date": max_daily_date,
+            "streak_data": streak_data,
+        }
+
+        return heatmap_data, daily_rain, summary_stats, None
     else:
-        return None, None, "Failed to fetch rainfall data for this location."
+        return None, None, None, "Failed to fetch rainfall data for this location."
 
 
 ### WIND DIRECTION APP ###
@@ -429,10 +545,33 @@ with tab1:
             _, heatmap_data, ew_percent, top_periods, error = st.session_state.wind_data_cache[loc_key]
             
         st.markdown(f"## Wind Analysis for: lat={lat:.4f}, lon={lon:.4f}")
-        
+
         if error:
             st.error(error)
         else:
+            # Calculate summary statistics for wind
+            overall_w_pct = ew_percent['W'].mean()
+            overall_e_pct = ew_percent['E'].mean()
+            predominant = "Westerly" if overall_w_pct > overall_e_pct else "Easterly"
+            max_w_month = ew_percent.groupby('month_num')['W'].mean().idxmax()
+            max_w_pct = ew_percent.groupby('month_num')['W'].mean().max()
+            longest_streak = top_periods['days'].max() if not top_periods.empty else 0
+            longest_streak_dir = top_periods.loc[top_periods['days'].idxmax(), 'direction'] if not top_periods.empty else "N/A"
+
+            # Display summary metrics at the top
+            st.markdown("### Key Statistics")
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+            with metric_col1:
+                st.metric("Avg. Westerly", f"{overall_w_pct:.1f}%", help="Average percentage of westerly winds out of E/W winds")
+            with metric_col2:
+                st.metric("Predominant Direction", predominant)
+            with metric_col3:
+                st.metric("Windiest W Month", calendar.month_abbr[max_w_month], f"{max_w_pct:.1f}% W")
+            with metric_col4:
+                st.metric("Longest Streak", f"{longest_streak} days", f"{longest_streak_dir}")
+
+            st.divider()
+
             # Create tabs for different analyses
             wind_tab1, wind_tab2, wind_tab3 = st.tabs(["Westerly Wind Percentage", "E/W Monthly Stats", "Longest Wind Streaks"])
             
@@ -841,19 +980,33 @@ with tab2:
 
         if need_fetch:
             with st.spinner("Fetching and processing rainfall data for the selected location..."):
-                heatmap_data, daily_rain, error = fetch_and_process_rain(lat, lon)
-                st.session_state.rain_data_cache[loc_key] = (current_date, heatmap_data, daily_rain, error)
+                heatmap_data, daily_rain, summary_stats, error = fetch_and_process_rain(lat, lon)
+                st.session_state.rain_data_cache[loc_key] = (current_date, heatmap_data, daily_rain, summary_stats, error)
         else:
             # Use cached data
-            _, heatmap_data, daily_rain, error = st.session_state.rain_data_cache[loc_key]
+            _, heatmap_data, daily_rain, summary_stats, error = st.session_state.rain_data_cache[loc_key]
 
         st.markdown(f"## Rainfall Analysis for: lat={lat:.4f}, lon={lon:.4f}")
 
         if error:
             st.error(error)
         else:
+            # Display summary metrics at the top
+            st.markdown("### Key Statistics")
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+            with metric_col1:
+                st.metric("Avg. Yearly Rainfall", f"{summary_stats['avg_yearly']:.0f} mm")
+            with metric_col2:
+                st.metric("Rainy Days", f"{summary_stats['rainy_pct']:.1f}%", help=f"{summary_stats['rainy_days']} of {summary_stats['total_days']} days")
+            with metric_col3:
+                st.metric("Max Daily Rainfall", f"{summary_stats['max_daily']:.1f} mm")
+            with metric_col4:
+                st.metric("Wettest Day", str(summary_stats['max_daily_date']))
+
+            st.divider()
+
             # Create tabs for different analyses
-            rain_tab1, rain_tab2, rain_tab3 = st.tabs(["Monthly Rainfall", "Daily Patterns", "Yearly Summary"])
+            rain_tab1, rain_tab2, rain_tab3, rain_tab4 = st.tabs(["Monthly Rainfall", "Daily Patterns", "Yearly Summary", "Dry/Wet Streaks"])
 
             with rain_tab1:
                 st.markdown("### Total Rainfall by Month and Year (mm)")
@@ -1042,6 +1195,69 @@ with tab2:
 
                 st.dataframe(monthly_pivot.round(1), use_container_width=True)
 
+            with rain_tab4:
+                st.markdown("### Longest Dry and Wet Periods")
+                st.markdown("""
+                This table shows the longest consecutive periods of dry weather (no significant rainfall)
+                and wet weather (rainfall every day). These can indicate drought conditions or prolonged wet spells.
+                """)
+
+                streak_data = summary_stats.get("streak_data", pd.DataFrame())
+                if not streak_data.empty:
+                    # Separate dry and wet streaks
+                    dry_df = streak_data[streak_data["type"] == "Dry"].copy()
+                    wet_df = streak_data[streak_data["type"] == "Wet"].copy()
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.markdown("#### Longest Dry Periods")
+                        if not dry_df.empty:
+                            dry_df["start_date"] = pd.to_datetime(dry_df["start_date"]).dt.strftime("%Y-%m-%d")
+                            dry_df["end_date"] = pd.to_datetime(dry_df["end_date"]).dt.strftime("%Y-%m-%d")
+                            dry_display = dry_df[["start_date", "end_date", "days"]].rename(columns={
+                                "start_date": "Start Date",
+                                "end_date": "End Date",
+                                "days": "Duration (days)"
+                            })
+                            st.dataframe(dry_display, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No significant dry periods found.")
+
+                    with col2:
+                        st.markdown("#### Longest Wet Periods")
+                        if not wet_df.empty:
+                            wet_df["start_date"] = pd.to_datetime(wet_df["start_date"]).dt.strftime("%Y-%m-%d")
+                            wet_df["end_date"] = pd.to_datetime(wet_df["end_date"]).dt.strftime("%Y-%m-%d")
+                            wet_display = wet_df[["start_date", "end_date", "days"]].rename(columns={
+                                "start_date": "Start Date",
+                                "end_date": "End Date",
+                                "days": "Duration (days)"
+                            })
+                            st.dataframe(wet_display, use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No significant wet periods found.")
+
+                    # Add rainy days by year chart
+                    st.markdown("### Rainy Days by Year")
+                    daily_rain["is_rainy"] = daily_rain["precipitation"] > 0.1
+                    rainy_by_year = daily_rain.groupby("year")["is_rainy"].sum().reset_index()
+                    rainy_by_year.columns = ["Year", "Rainy Days"]
+
+                    plt.figure(figsize=(14, 5))
+                    bars = plt.bar(rainy_by_year["Year"], rainy_by_year["Rainy Days"], color="#3498db")
+                    avg_rainy = rainy_by_year["Rainy Days"].mean()
+                    plt.axhline(y=avg_rainy, color="red", linestyle="--", alpha=0.7, label=f"Average: {avg_rainy:.0f} days")
+                    plt.xlabel("Year")
+                    plt.ylabel("Number of Rainy Days")
+                    plt.title("Rainy Days per Year (>0.1mm precipitation)")
+                    plt.grid(axis="y", linestyle="--", alpha=0.7)
+                    plt.legend()
+                    plt.tight_layout()
+                    st.pyplot(plt)
+                else:
+                    st.info("No streak data available.")
+
     # Reset analyze_mode if location is cleared
     elif st.session_state.rain_analyze_mode and st.session_state.rain_location is None:
         st.session_state.rain_analyze_mode = False
@@ -1053,6 +1269,7 @@ with tab3:
     milan_lon = 9.19
 
     st.markdown("### Select two locations to compare apparent temperature")
+    st.markdown("*Click on the map to add locations. You need exactly 2 locations to compare.*")
     
     # --- Map Display and Interaction ---
     temp_map_center = [milan_lat, milan_lon]
@@ -1161,7 +1378,30 @@ with tab3:
             temp2, err2 = st.session_state.temp_data_cache[loc2_key]
             
         st.markdown("## Temperature Comparison Results")
-        
+
+        # Calculate and display summary metrics if data is available
+        if err1 is None and err2 is None:
+            # Calculate key metrics for comparison
+            max_temp1 = temp1.max().max()
+            max_temp2 = temp2.max().max()
+            avg_temp1 = temp1.mean().mean()
+            avg_temp2 = temp2.mean().mean()
+            hottest_month1 = temp1.mean(axis=1).idxmax()
+            hottest_month2 = temp2.mean(axis=1).idxmax()
+
+            st.markdown("### Key Comparison")
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+            with metric_col1:
+                st.metric("Max Temp (Loc 1)", f"{max_temp1:.1f}°C")
+            with metric_col2:
+                st.metric("Max Temp (Loc 2)", f"{max_temp2:.1f}°C", f"{max_temp2 - max_temp1:+.1f}°C")
+            with metric_col3:
+                st.metric("Hottest Month (Loc 1)", calendar.month_abbr[hottest_month1])
+            with metric_col4:
+                st.metric("Hottest Month (Loc 2)", calendar.month_abbr[hottest_month2])
+
+            st.divider()
+
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"### Location 1: lat={lat1:.4f}, lon={lon1:.4f}")
