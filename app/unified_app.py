@@ -73,7 +73,7 @@ st.markdown(
 st.title("Historical Climate Data Explorer")
 
 # Main app tabs
-tab1, tab2 = st.tabs(["Wind Direction Analysis", "Temperature Comparison"])
+tab1, tab2, tab3 = st.tabs(["Wind Direction Analysis", "Rainfall Analysis", "Temperature Comparison"])
 
 # --- State Initialization ---
 # Wind Direction App
@@ -95,6 +95,16 @@ if "compare_mode" not in st.session_state:
     st.session_state.compare_mode = False
 if "temp_data_cache" not in st.session_state:
     st.session_state.temp_data_cache = {}
+
+# Rainfall Analysis App
+if "rain_location" not in st.session_state:
+    st.session_state.rain_location = (51.4700, -0.4543)  # Heathrow Airport default
+if "rain_analyze_mode" not in st.session_state:
+    st.session_state.rain_analyze_mode = True
+if "rain_last_clicked_coords" not in st.session_state:
+    st.session_state.rain_last_clicked_coords = None
+if "rain_data_cache" not in st.session_state:
+    st.session_state.rain_data_cache = {}
 
 # Define common helper functions
 def deg_to_compass(deg):
@@ -255,6 +265,55 @@ def fetch_and_process_temp(lat, lon):
         return temp_monthly, None
     else:
         return None, "Failed to fetch temperature data for this location."
+
+
+def fetch_and_process_rain(lat, lon):
+    """Fetch and process rainfall data from Open-Meteo API."""
+    end_date = datetime.today()
+    start_year = end_date.year - 10  # Get 10 years of data
+    start_date = datetime(start_year, 1, 1)
+    url = "https://archive-api.open-meteo.com/v1/archive"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start_date.strftime("%Y-%m-%d"),
+        "end_date": end_date.strftime("%Y-%m-%d"),
+        "hourly": "precipitation",
+        "timezone": "auto",
+    }
+    response = requests.get(url, params=params)
+    if response.status_code == 200 and "hourly" in response.json():
+        data = response.json()["hourly"]
+        if not data or not data.get("time") or len(data["time"]) == 0:
+            return None, None, "No data available for this location and time range."
+
+        df = pd.DataFrame(data)
+        if df.empty:
+            return None, None, "No data returned for this location."
+
+        # Process the data
+        df["time"] = pd.to_datetime(df["time"])
+        df["year"] = df["time"].dt.year.astype(str)
+        df["month_num"] = df["time"].dt.month
+        df["day"] = df["time"].dt.day
+        df["date"] = df["time"].dt.date
+
+        # Fill NaN precipitation values with 0
+        df["precipitation"] = df["precipitation"].fillna(0)
+
+        # Daily totals
+        daily_rain = df.groupby(["date", "year", "month_num", "day"])["precipitation"].sum().reset_index()
+
+        # Monthly totals by year
+        monthly_rain = daily_rain.groupby(["month_num", "year"])["precipitation"].sum().reset_index()
+
+        # Create heatmap data: total rainfall by month and year
+        heatmap_data = monthly_rain.pivot(index="month_num", columns="year", values="precipitation")
+        heatmap_data = heatmap_data.sort_index()
+
+        return heatmap_data, daily_rain, None
+    else:
+        return None, None, "Failed to fetch rainfall data for this location."
 
 
 ### WIND DIRECTION APP ###
@@ -677,8 +736,318 @@ with tab1:
     elif st.session_state.analyze_mode and st.session_state.location is None:
         st.session_state.analyze_mode = False
 
-### TEMPERATURE COMPARISON APP ###
+### RAINFALL ANALYSIS APP ###
 with tab2:
+    # Default location: Heathrow Airport, UK
+    rain_heathrow_lat = 51.4700
+    rain_heathrow_lon = -0.4543
+
+    st.markdown("### Select a location to analyze rainfall patterns")
+
+    # --- Map Display and Interaction ---
+    rain_map_center = [rain_heathrow_lat, rain_heathrow_lon] if not st.session_state.rain_location else list(st.session_state.rain_location)
+    rain_m = folium.Map(location=rain_map_center, zoom_start=4, tiles="CartoDB Positron")
+
+    # Add marker for the selected location
+    if st.session_state.rain_location:
+        lat, lon = st.session_state.rain_location
+        folium.Marker(
+            location=[lat, lon],
+            popup=f"Selected Location: {lat:.4f}, {lon:.4f}",
+            icon=folium.Icon(color="blue", icon="info-sign"),
+        ).add_to(rain_m)
+
+    rain_m.add_child(folium.LatLngPopup())
+
+    # Render map with reduced height to minimize gap
+    rain_map_output = st_folium(rain_m, width="100%", height=460, key="rain_map")
+
+    # Check if map has TRULY changed in a meaningful way (new clicks, not just zoom/pan)
+    if rain_map_output and rain_map_output.get("last_clicked"):
+        current_click = rain_map_output.get("last_clicked")
+
+        # Only process click if it's new AND different from previous click
+        if current_click != st.session_state.rain_last_clicked_coords:
+            lat, lon = current_click["lat"], current_click["lng"]
+
+            # Save current clicked coordinates to compare next time
+            st.session_state.rain_last_clicked_coords = current_click
+
+            # Check if the location is different from the current one
+            is_new = True
+            if st.session_state.rain_location:
+                curr_lat, curr_lon = st.session_state.rain_location
+                is_new = not (abs(lat - curr_lat) < 1e-4 and abs(lon - curr_lon) < 1e-4)
+
+            if is_new:
+                # This is a true new location selection
+                st.session_state.rain_location = (lat, lon)
+
+                # Enable analysis for the new location
+                st.session_state.rain_analyze_mode = True
+                st.rerun()
+
+    # Simple control section with reduced spacing
+    st.markdown('<div style="margin-top:-2rem;"></div>', unsafe_allow_html=True)
+
+    # Simple columns layout using native Streamlit
+    rain_col1, rain_col2, rain_col3 = st.columns([2, 1, 1])
+
+    with rain_col1:
+        # Show selected location
+        if st.session_state.rain_location:
+            lat, lon = st.session_state.rain_location
+            st.markdown(f"**Selected Location:** lat={lat:.4f}, lon={lon:.4f}")
+        else:
+            st.markdown("**No location selected**")
+
+    with rain_col2:
+        # Use a small button with native Streamlit
+        if st.button("Reset to Heathrow", key="rain_reset_btn", use_container_width=True):
+            st.session_state.rain_location = (rain_heathrow_lat, rain_heathrow_lon)
+            st.session_state.rain_analyze_mode = True
+            st.rerun()
+
+    with rain_col3:
+        # Use a small button with native Streamlit
+        if st.button(
+            "Analyze Rainfall",
+            key="rain_analyze_btn",
+            disabled=st.session_state.rain_location is None,
+            use_container_width=True
+        ):
+            st.session_state.rain_analyze_mode = True
+            st.rerun()
+
+    # Rainfall analysis section
+    if st.session_state.rain_analyze_mode and st.session_state.rain_location is not None:
+        # Get the selected location
+        lat, lon = st.session_state.rain_location
+        loc_key = f"rain_{lat:.4f}_{lon:.4f}"
+
+        # Check if we need to fetch data based on cache status and date
+        current_date = datetime.now().date().isoformat()
+
+        need_fetch = False
+
+        # Fetch if: 1) Location not in cache, or 2) Cache date has changed
+        if loc_key not in st.session_state.rain_data_cache:
+            need_fetch = True
+        else:
+            # Check if the cached data is from a different day
+            cached_date = st.session_state.rain_data_cache[loc_key][0]
+            if cached_date != current_date:
+                need_fetch = True
+
+        if need_fetch:
+            with st.spinner("Fetching and processing rainfall data for the selected location..."):
+                heatmap_data, daily_rain, error = fetch_and_process_rain(lat, lon)
+                st.session_state.rain_data_cache[loc_key] = (current_date, heatmap_data, daily_rain, error)
+        else:
+            # Use cached data
+            _, heatmap_data, daily_rain, error = st.session_state.rain_data_cache[loc_key]
+
+        st.markdown(f"## Rainfall Analysis for: lat={lat:.4f}, lon={lon:.4f}")
+
+        if error:
+            st.error(error)
+        else:
+            # Create tabs for different analyses
+            rain_tab1, rain_tab2, rain_tab3 = st.tabs(["Monthly Rainfall", "Daily Patterns", "Yearly Summary"])
+
+            with rain_tab1:
+                st.markdown("### Total Rainfall by Month and Year (mm)")
+                st.markdown("""
+                This heatmap shows the total rainfall in millimeters for each month over the past years.
+                Higher values (darker blue) indicate wetter periods, while lower values (lighter) indicate drier periods.
+                The rightmost column shows the average for each month, and the bottom row shows the average for each year.
+                """)
+
+                # Add monthly and yearly averages to heatmap_data
+                # Make a copy to avoid modifying the cached data
+                heatmap_with_avgs = heatmap_data.copy()
+
+                # Calculate monthly averages (across years) - add as a new column
+                monthly_avgs = heatmap_with_avgs.mean(axis=1, skipna=True).round(1)
+                heatmap_with_avgs['Average'] = monthly_avgs
+
+                # Calculate yearly averages (across months) - add as a new row
+                yearly_avgs = heatmap_with_avgs.mean(axis=0, skipna=True).round(1)
+                yearly_avgs_df = pd.DataFrame([yearly_avgs], index=[13])  # Use 13 to ensure it's after all months
+                heatmap_with_avgs = pd.concat([heatmap_with_avgs, yearly_avgs_df])
+
+                # Create the heatmap with blue colormap for rainfall
+                plt.figure(figsize=(14, 9))
+                ax = sns.heatmap(
+                    heatmap_with_avgs,
+                    annot=True,
+                    fmt=".1f",
+                    cmap="Blues",
+                    cbar_kws={"label": "Total Rainfall (mm)"},
+                    linewidths=0.5,
+                    linecolor="gray",
+                    annot_kws={"size": 9},
+                )
+                plt.title("Total Rainfall per Month per Year (mm)")
+                plt.ylabel("")
+                plt.xlabel("")
+
+                # Adjust y-tick labels to include "Average" for the last row
+                y_labels = [calendar.month_abbr[m] if m <= 12 else "Average" for m in heatmap_with_avgs.index]
+                ax.set_yticklabels(y_labels, rotation=0)
+
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                st.pyplot(plt)
+
+            with rain_tab2:
+                st.markdown("### Daily Rainfall Patterns")
+
+                # Calculate average daily rainfall by month
+                monthly_avg_daily = daily_rain.groupby('month_num')['precipitation'].mean().reset_index()
+                monthly_avg_daily['month'] = monthly_avg_daily['month_num'].apply(lambda x: calendar.month_abbr[x])
+
+                # Create bar chart of monthly average daily rainfall
+                plt.figure(figsize=(14, 6))
+                plt.bar(monthly_avg_daily['month'], monthly_avg_daily['precipitation'], color='#3498db')
+                plt.xlabel('Month')
+                plt.ylabel('Average Daily Rainfall (mm)')
+                plt.title('Average Daily Rainfall by Month')
+                plt.grid(axis='y', linestyle='--', alpha=0.7)
+                plt.tight_layout()
+                st.pyplot(plt)
+
+                # Create day-by-month heatmap for all years
+                st.markdown("### Average Daily Rainfall by Day and Month (All Years)")
+                st.markdown("This heatmap shows the average daily rainfall for each day of each month across all years in the dataset.")
+
+                # Calculate average rainfall by day and month
+                daily_by_daymonth = daily_rain.groupby(['month_num', 'day'])['precipitation'].mean().reset_index()
+                daily_heatmap = daily_by_daymonth.pivot(index='month_num', columns='day', values='precipitation')
+
+                # Create the heatmap
+                plt.figure(figsize=(14, 8))
+                ax = sns.heatmap(
+                    daily_heatmap,
+                    annot=True,
+                    fmt=".1f",
+                    cmap="Blues",
+                    cbar_kws={"label": "Average Rainfall (mm)"},
+                    linewidths=0.5,
+                    linecolor="gray",
+                    annot_kws={"size": 8},
+                    mask=daily_heatmap.isna()
+                )
+                plt.title("Average Daily Rainfall by Day and Month (All Years)")
+                plt.xlabel("Day")
+                plt.ylabel("Month")
+
+                # Set y-tick labels as month names
+                month_names = [calendar.month_abbr[m] for m in daily_heatmap.index]
+                ax.set_yticklabels(month_names, rotation=0)
+
+                plt.tight_layout()
+                st.pyplot(plt)
+
+                # Current year heatmap
+                st.markdown("### Daily Rainfall by Day and Month (Current Year Only)")
+                st.markdown("This heatmap shows the total daily rainfall for each day of each month for the current year only.")
+
+                # Filter for current year data
+                current_year = datetime.now().year
+                df_current_year = daily_rain[daily_rain['year'] == str(current_year)].copy()
+
+                if not df_current_year.empty:
+                    # Create pivot table for current year
+                    current_daily_heatmap = df_current_year.pivot(index='month_num', columns='day', values='precipitation')
+
+                    # Create a summary of data availability
+                    st.markdown("### Data Availability for Current Year")
+                    total_days = len(df_current_year)
+                    st.write(f"Total days with rainfall data: **{total_days}**")
+
+                    # Create a dataframe of month-by-month data coverage
+                    days_by_month = df_current_year.groupby('month_num')['day'].nunique()
+                    days_in_month = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31}
+                    coverage = pd.DataFrame({
+                        'Month': [calendar.month_name[m] for m in days_by_month.index],
+                        'Days with Data': days_by_month.values,
+                        'Total Days': [days_in_month.get(m, 30) for m in days_by_month.index],
+                    })
+                    coverage['Coverage %'] = (coverage['Days with Data'] / coverage['Total Days'] * 100).round(1)
+                    st.write(coverage)
+
+                    # Create the heatmap
+                    plt.figure(figsize=(14, 8))
+                    ax = sns.heatmap(
+                        current_daily_heatmap,
+                        annot=True,
+                        fmt=".1f",
+                        cmap="Blues",
+                        cbar_kws={"label": "Rainfall (mm)"},
+                        linewidths=0.5,
+                        linecolor="gray",
+                        annot_kws={"size": 8},
+                        mask=current_daily_heatmap.isna()
+                    )
+                    plt.title(f"Daily Rainfall by Day and Month ({current_year})")
+                    plt.xlabel("Day")
+                    plt.ylabel("Month")
+
+                    # Set y-tick labels as month names
+                    month_names = [calendar.month_abbr[m] for m in current_daily_heatmap.index]
+                    ax.set_yticklabels(month_names, rotation=0)
+
+                    plt.tight_layout()
+                    st.pyplot(plt)
+                else:
+                    st.info(f"No data available for the current year ({current_year}).")
+
+            with rain_tab3:
+                st.markdown("### Yearly Rainfall Summary")
+
+                # Calculate yearly totals
+                yearly_total = daily_rain.groupby('year')['precipitation'].sum().reset_index()
+                yearly_total.columns = ['Year', 'Total Rainfall (mm)']
+
+                # Create bar chart of yearly rainfall
+                plt.figure(figsize=(14, 6))
+                bars = plt.bar(yearly_total['Year'], yearly_total['Total Rainfall (mm)'], color='#3498db')
+
+                # Add average line
+                avg_rainfall = yearly_total['Total Rainfall (mm)'].mean()
+                plt.axhline(y=avg_rainfall, color='red', linestyle='--', alpha=0.7, label=f'Average: {avg_rainfall:.1f} mm')
+
+                plt.xlabel('Year')
+                plt.ylabel('Total Rainfall (mm)')
+                plt.title('Yearly Total Rainfall')
+                plt.grid(axis='y', linestyle='--', alpha=0.7)
+                plt.legend()
+                plt.tight_layout()
+                st.pyplot(plt)
+
+                # Show data table
+                st.dataframe(yearly_total.round(1), use_container_width=True)
+
+                # Monthly distribution comparison across years
+                st.markdown("### Monthly Rainfall Distribution")
+
+                # Calculate monthly totals by year
+                monthly_by_year = daily_rain.groupby(['year', 'month_num'])['precipitation'].sum().reset_index()
+                monthly_by_year['month'] = monthly_by_year['month_num'].apply(lambda x: calendar.month_abbr[x])
+
+                # Create a pivot table for display
+                monthly_pivot = monthly_by_year.pivot(index='month_num', columns='year', values='precipitation')
+                monthly_pivot.index = [calendar.month_abbr[m] for m in monthly_pivot.index]
+
+                st.dataframe(monthly_pivot.round(1), use_container_width=True)
+
+    # Reset analyze_mode if location is cleared
+    elif st.session_state.rain_analyze_mode and st.session_state.rain_location is None:
+        st.session_state.rain_analyze_mode = False
+
+### TEMPERATURE COMPARISON APP ###
+with tab3:
     # Default location: Milan, Italy
     milan_lat = 45.4642
     milan_lon = 9.19
