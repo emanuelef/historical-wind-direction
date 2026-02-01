@@ -274,23 +274,51 @@ function renderWindResults(data: WindData) {
   // Setup sub-tabs
   setupSubTabs('wind-sub-tabs');
 
+  // Custom RdYlGn colorscale matching seaborn
+  const windColorscale: [number, string][] = [
+    [0, '#a50026'],     // dark red
+    [0.1, '#d73027'],   // red
+    [0.2, '#f46d43'],   // orange-red
+    [0.3, '#fdae61'],   // orange
+    [0.4, '#fee08b'],   // yellow-orange
+    [0.5, '#ffffbf'],   // yellow
+    [0.6, '#d9ef8b'],   // yellow-green
+    [0.7, '#a6d96a'],   // light green
+    [0.8, '#66bd63'],   // green
+    [0.9, '#1a9850'],   // dark green
+    [1, '#006837']      // darkest green
+  ];
+
+  // Replace 0 values with null (no data) so they appear blank
+  const windValues = data.heatmap.values.map(row =>
+    row.map(v => v === 0 ? null : v)
+  );
+  const windText = data.heatmap.values.map(row =>
+    row.map(v => v === 0 ? '' : v.toFixed(1))
+  );
+
   // Heatmap
   Plotly.newPlot('wind-heatmap-chart', [{
-    z: data.heatmap.values,
+    z: windValues,
     x: data.heatmap.years,
     y: data.heatmap.months.map(m => MONTHS[m - 1]),
     type: 'heatmap',
-    colorscale: 'RdYlGn',
+    colorscale: windColorscale,
     zmin: 0,
     zmax: 100,
-    text: data.heatmap.values.map(row => row.map(v => v.toFixed(1))),
+    xgap: 1,
+    ygap: 1,
+    text: windText,
     texttemplate: '%{text}',
-    textfont: { size: 10 },
+    textfont: { size: 12, color: '#000' },
     hoverinfo: 'z',
-    colorbar: { title: '% Westerly' }
+    colorbar: { title: '% Westerly Winds', len: 0.9 }
   }], {
-    title: 'Westerly Wind Percentage',
-    margin: { t: 40, l: 60 }
+    title: 'Westerly Wind Percentage per Month per Year',
+    height: 650,
+    width: 1000,
+    margin: { t: 50, l: 60, r: 120, b: 50 },
+    yaxis: { autorange: 'reversed' }
   }, { responsive: true });
 
   // Monthly
@@ -360,21 +388,35 @@ function renderRainResults(data: RainData) {
 
   setupSubTabs('rain-sub-tabs');
 
+  // Replace 0 values with null (no data) so they appear blank
+  const rainValues = data.heatmap.values.map(row =>
+    row.map(v => v === 0 ? null : v)
+  );
+  const rainText = data.heatmap.values.map(row =>
+    row.map(v => v === 0 ? '' : v.toFixed(0))
+  );
+
   // Heatmap
   Plotly.newPlot('rain-heatmap-chart', [{
-    z: data.heatmap.values,
+    z: rainValues,
     x: data.heatmap.years,
     y: data.heatmap.months.map(m => MONTHS[m - 1]),
     type: 'heatmap',
     colorscale: 'Blues',
-    text: data.heatmap.values.map(row => row.map(v => v.toFixed(0))),
+    reversescale: true,
+    xgap: 1,
+    ygap: 1,
+    text: rainText,
     texttemplate: '%{text}',
-    textfont: { size: 10 },
+    textfont: { size: 11 },
     hoverinfo: 'z',
     colorbar: { title: 'mm' }
   }], {
     title: 'Monthly Rainfall (mm)',
-    margin: { t: 40, l: 60 }
+    height: 600,
+    width: 1000,
+    margin: { t: 40, l: 60, r: 120, b: 50 },
+    yaxis: { autorange: 'reversed' }
   }, { responsive: true });
 
   // Monthly
@@ -464,41 +506,66 @@ function renderTempResults(data1: TempData, data2: TempData) {
     [1, '#FF4500']
   ];
 
+  // Replace 0 values with null (no data) so they appear blank
+  const temp1Values = data1.heatmap.values.map(row =>
+    row.map(v => v === 0 ? null : v)
+  );
+  const temp1Text = data1.heatmap.values.map(row =>
+    row.map(v => v === 0 ? '' : v.toFixed(1))
+  );
+  const temp2Values = data2.heatmap.values.map(row =>
+    row.map(v => v === 0 ? null : v)
+  );
+  const temp2Text = data2.heatmap.values.map(row =>
+    row.map(v => v === 0 ? '' : v.toFixed(1))
+  );
+
   // Heatmap 1
   Plotly.newPlot('temp-chart1', [{
-    z: data1.heatmap.values,
+    z: temp1Values,
     x: data1.heatmap.years,
     y: data1.heatmap.months.map(m => MONTHS[m - 1]),
     type: 'heatmap',
     colorscale: tempColorscale,
     zmin: 0,
     zmax: 45,
-    text: data1.heatmap.values.map(row => row.map(v => v.toFixed(1))),
+    xgap: 1,
+    ygap: 1,
+    text: temp1Text,
     texttemplate: '%{text}',
-    textfont: { size: 10 },
+    textfont: { size: 11 },
     hoverinfo: 'z',
     colorbar: { title: '°C' }
-  }], { margin: { t: 20, l: 60 } }, { responsive: true });
+  }], { height: 550, margin: { t: 20, l: 60, r: 100 }, yaxis: { autorange: 'reversed' } }, { responsive: true });
 
   // Heatmap 2
   Plotly.newPlot('temp-chart2', [{
-    z: data2.heatmap.values,
+    z: temp2Values,
     x: data2.heatmap.years,
     y: data2.heatmap.months.map(m => MONTHS[m - 1]),
     type: 'heatmap',
     colorscale: tempColorscale,
     zmin: 0,
     zmax: 45,
-    text: data2.heatmap.values.map(row => row.map(v => v.toFixed(1))),
+    xgap: 1,
+    ygap: 1,
+    text: temp2Text,
     texttemplate: '%{text}',
-    textfont: { size: 10 },
+    textfont: { size: 11 },
     hoverinfo: 'z',
     colorbar: { title: '°C' }
-  }], { margin: { t: 20, l: 60 } }, { responsive: true });
+  }], { height: 550, margin: { t: 20, l: 60, r: 100 }, yaxis: { autorange: 'reversed' } }, { responsive: true });
 
-  // Diff heatmap
+  // Diff heatmap - handle null values
   const diffValues = data2.heatmap.values.map((row, i) =>
-    row.map((val, j) => val - (data1.heatmap.values[i]?.[j] || 0))
+    row.map((val, j) => {
+      const v1 = data1.heatmap.values[i]?.[j] || 0;
+      if (val === 0 || v1 === 0) return null;
+      return val - v1;
+    })
+  );
+  const diffText = diffValues.map(row =>
+    row.map(v => v === null ? '' : v.toFixed(1))
   );
 
   Plotly.newPlot('temp-diff-chart', [{
@@ -510,12 +577,14 @@ function renderTempResults(data1: TempData, data2: TempData) {
     zmid: 0,
     zmin: -20,
     zmax: 20,
-    text: diffValues.map(row => row.map(v => v.toFixed(1))),
+    xgap: 1,
+    ygap: 1,
+    text: diffText,
     texttemplate: '%{text}',
-    textfont: { size: 10 },
+    textfont: { size: 11 },
     hoverinfo: 'z',
     colorbar: { title: '°C' }
-  }], { margin: { t: 20, l: 60 } }, { responsive: true });
+  }], { height: 550, width: 1000, margin: { t: 20, l: 60, r: 100 }, yaxis: { autorange: 'reversed' } }, { responsive: true });
 }
 
 function setupSubTabs(containerId: string) {

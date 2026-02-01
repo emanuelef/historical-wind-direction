@@ -11,8 +11,8 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
-  
-  # Check for updates to Python dependencies
+
+  # Check for updates to Python dependencies (main app)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -23,7 +23,19 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
-    
+
+  # Check for updates to Python dependencies (app-fast)
+  - package-ecosystem: "pip"
+    directory: "/app-fast"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "python"
+      - "dependencies"
+    commit-message:
+      prefix: "deps(app-fast)"
+      include: "scope"
+
   # Check for updates to Docker base image
   - package-ecosystem: "docker"
     directory: "/"
@@ -34,4 +46,16 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "docker"
+      include: "scope"
+
+  # Check for updates to npm dependencies (app-static)
+  - package-ecosystem: "npm"
+    directory: "/app-static"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "javascript"
+      - "dependencies"
+    commit-message:
+      prefix: "deps(app-static)"
       include: "scope"
