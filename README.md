@@ -1,4 +1,7 @@
 # Historical Climate Data Explorer
+<img width="1023" height="650" alt="Screenshot 2026-02-01 at 23 23 12" src="https://github.com/user-attachments/assets/8ebebb58-2499-45da-ab62-776a95a759ac" />
+
+
 
 This project provides interactive tools to analyze historical climate data, including:
 
