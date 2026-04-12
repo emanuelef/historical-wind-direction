@@ -5,7 +5,7 @@ description = "Fast Climate Data Explorer - FastAPI + Vanilla JS"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
+    "uvicorn[standard]>=0.44.0",
     "httpx>=0.26.0",
     "pandas>=2.0.0",
     "numpy>=1.24.0",
