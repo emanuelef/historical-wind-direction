@@ -8,7 +8,7 @@ dependencies = [
     "uvicorn[standard]>=0.27.0",
     "httpx>=0.26.0",
     "pandas>=2.0.0",
-    "numpy>=1.24.0",
+    "numpy>=2.4.4",
 ]
 
 [dependency-groups]
